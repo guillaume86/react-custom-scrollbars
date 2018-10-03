@@ -1,4 +1,4 @@
-import raf, { cancel as caf } from 'raf';
+import raf from 'raf';
 import css from 'dom-css';
 import { Component, createElement, cloneElement } from 'react';
 import PropTypes from 'prop-types';
@@ -89,7 +89,7 @@ export default class Scrollbars extends Component {
 
     componentWillUnmount() {
         this.removeListeners();
-        caf(this.requestFrame);
+        raf.cancel(this.requestFrame);
         clearTimeout(this.hideTracksTimeout);
         clearInterval(this.detectScrollingInterval);
     }
@@ -224,7 +224,15 @@ export default class Scrollbars extends Component {
         trackVertical.addEventListener('mousedown', this.handleVerticalTrackMouseDown);
         thumbHorizontal.addEventListener('mousedown', this.handleHorizontalThumbMouseDown);
         thumbVertical.addEventListener('mousedown', this.handleVerticalThumbMouseDown);
+
         window.addEventListener('resize', this.handleWindowResize);
+
+        /*
+        workaround for https://developer.microsoft.com/en-us/microsoft-edge/platform/issues/10124881/
+        which results in calling handleWindowResize even after removeEventListener has been called
+        if the component is unmounted during a resize event propagation
+        */
+        this.listeningToWindowResize = true;
     }
 
     removeListeners() {
@@ -241,6 +249,7 @@ export default class Scrollbars extends Component {
         trackVertical.removeEventListener('mousedown', this.handleVerticalTrackMouseDown);
         thumbHorizontal.removeEventListener('mousedown', this.handleHorizontalThumbMouseDown);
         thumbVertical.removeEventListener('mousedown', this.handleVerticalThumbMouseDown);
+        this.listeningToWindowResize = false;
         window.removeEventListener('resize', this.handleWindowResize);
         // Possibly setup by `handleDragStart`
         this.teardownDragging();
@@ -283,6 +292,7 @@ export default class Scrollbars extends Component {
     }
 
     handleWindowResize() {
+        if (!this.listeningToWindowResize) return;
         this.update();
     }
 
